@@ -7,6 +7,52 @@ import json
 import google.generativeai as genai
 import requests
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, GridUpdateMode
+import requests
+import base64
+import io
+
+
+# Set your GitHub credentials and repository information
+GITHUB_TOKEN = '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'
+GITHUB_USERNAME = 'RakeshManjunatha21'
+GITHUB_REPO = 'travelBERT'  # Just the repository name, not the full URL
+GITHUB_FILE_PATH = 'updated_list.csv'  # The file path within the repository, pointing to the raw content
+
+# Function to read the CSV file from GitHub
+def read_csv_from_github():
+    url = f'https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}'
+    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        content = base64.b64decode(response.json()['content'])
+        return pd.read_csv(io.StringIO(content.decode('utf-8')))  # Updated import statement
+    else:
+        st.error(f"Error reading file: {response.status_code}")
+        return pd.DataFrame(columns=["Questions", "Suggestions"])
+
+# Function to write the CSV file to GitHub
+def write_csv_to_github(df):
+    url = f'https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}'
+    headers = {
+        'Authorization': f'token {GITHUB_TOKEN}',
+        'Content-Type': 'application/json'
+    }
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        sha = response.json()['sha']
+        content = base64.b64encode(df.to_csv(index=False).encode('utf-8')).decode('utf-8')
+        data = {
+            'message': 'Updating updated_list.csv',
+            'content': content,
+            'sha': sha
+        }
+        response = requests.put(url, headers=headers, data=json.dumps(data))
+        if response.status_code == 200:
+            st.success('Database Updated...')
+        else:
+            st.error(f"Error updating file: {response.status_code}")
+    else:
+        st.error(f"Error reading file: {response.status_code}")
 
 def TravelScore(text:str):
     senti_analysis_prompt = f"""Analyse the following list of feedback '{text}' and generate Below
@@ -33,7 +79,7 @@ def responseFunc(prompt):
 
 # Load the existing DataFrame from a CSV file or create a new one
 try:
-    df = pd.read_csv("updated_list.csv")
+    df = read_csv_from_github()
 except FileNotFoundError:
     df = pd.DataFrame(columns=["Questions", "Suggestions"])
 
@@ -67,7 +113,8 @@ with st.form(key='feedback_form'):
                     df.at[i, "Suggestions"] += '@' + feedback_message
         
         # Save the updated DataFrame to a CSV file
-        df.to_csv("updated_list.csv", index=False)
+        # df.to_csv("updated_list.csv", index=False)
+        write_csv_to_github(df)
         st.success('Thank you for your feedback!')
 
 if place != "----NEW Place----": 
