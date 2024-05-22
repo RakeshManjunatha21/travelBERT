@@ -13,7 +13,7 @@ import io
 
 
 # Set your GitHub credentials and repository information
-GITHUB_TOKEN = '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'
+GITHUB_TOKEN = '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'
 GITHUB_USERNAME = 'RakeshManjunatha21'
 GITHUB_REPO = 'travelBERT'  # Just the repository name, not the full URL
 GITHUB_FILE_PATH = 'updated_list.csv'  # The file path within the repository, pointing to the raw content
