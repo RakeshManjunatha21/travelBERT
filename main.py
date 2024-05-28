@@ -1,3 +1,8 @@
+import gspread
+from google.oauth2.service_account import Credentials
+import pandas as pd
+import streamlit as st
+from gspread.exceptions import APIError
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,48 +16,56 @@ import requests
 import base64
 import io
 
+# Replace 'your_google_sheet_id' with your actual Google Sheet ID
+SPREADSHEET_ID = '1BJtkta1n1vwZScjsOx82zh_aoNVa4IBe70EZ04DLby4'
+WORKSHEET_NAME = 'updated_list.csv'  # Replace with your sheet name if different
 
-# Set your GitHub credentials and repository information
-GITHUB_TOKEN = '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'
-GITHUB_USERNAME = 'RakeshManjunatha21'
-GITHUB_REPO = 'travelBERT'  # Just the repository name, not the full URL
-GITHUB_FILE_PATH = 'updated_list.csv'  # The file path within the repository, pointing to the raw content
+# Google Sheets credentials
+CREDENTIALS = {
+  "type": "service_account",
+  "project_id": "hale-acumen-424710-p5",
+  "private_key_id": "8448d8afe26fc07a6e49479559ff88346f7b5301",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDAL8skCAPcueDQ\nq966xmE2HP+PFEWNQ8u3TK3W0oZV/JrpLtQ1EZNK/da80GgF9S8nf0WPhsBuZvGU\nV5WXXyzcSYF/hGJkYSj1aDen+1dQmpdhUf/H0RfeKQ77wwWHa3SzVnemODwl231g\nncrX5aQ/pOBMixxaaIB567nvMz9REofmE63WlH2Tn1d3L+/VI7AutzqshjtlBVof\ntbdl+bb6TK+LFgm1ZfAlKmlKCUP5sabLtHOdxPNNUIwdlhYQHiRx8VLo2/2zZfd9\nJ6R+vklYO7Rov7xzjmBQ5VyPMBKBuBBZjIUgJjMrXxuTcJfvnHjcLCUQmfwTEUYw\n/JBavlW5AgMBAAECggEAFrqgSPzcrhJapPsqnoa/MPXpgHuqhRw3P9Ck/5LK2ekD\nzh+gb71KIPSX3KE+KDQ41TA/YwvR/syUdhGMqsgSB2R3GQRoWYxHGozuhiKazzjV\nPeiDeld/feH3uG02Xm9mMB6CDIm6jVShxZcryfBKBk/iyhKqsgOJbEHlbcVvD9CP\ndvV4fGGnfkJhhz8zCAg2KL34eyICTwFLQoj+lrHR1mhNdlklR/DNOn1Qy8520qDL\nxBxotK1C6snaQAo+AFpVBLvFuqN9fIXCsRyWtKYUlVR6Kr92rKQGN4ff/HEpI5P5\nFsyalzdNjUpEY+e5fqWr/U4S0KOtRAyhrURh9YpqjQKBgQDn5ZE3hBiPdCVXZttW\nBvX2WciWGGEuSswsRKNsoNPFiYKggd43lYSB7bjk1FjOVK3VsLSDqAgRf3foeVBe\nDDBt9BT3xyj0+ROkJYW4k3m56crBjMNajHc275nUOYUBRbjAt9v10o33HZR8xXBp\nVLlV8bn6UsSA6wrsMxvei6H8FQKBgQDUKZmTe8Yoq3lyHf86Xleqn5gfyCyRNb/r\nsigUMymsojAZGtoc8vM4J6dxxxsIJFaIiRJS9jFsB3ClXN0fZsPpG0SFyqb7jH5t\nxRCmNisUNhEdbSTvud38GokXBJoQHJuVIdxgX/AEWOfSAJbUtmDhu9TlJolLX1Gg\nI/mKnUQIFQKBgG20cQqud2AGNlQu2LzN9jZhKz+2sOLRh925awbM3uKotx9v0MzC\n8zj0WXAH9StHbCWXvw45w/djMjrMiXS0l4Ss3+6ITZv26Y/SIHy9Z+zH6Z+/E/wW\nT5+xojiALaf4b/rcADc/MOIjIEgWr6Nk7Xj3LmB6H3RNvZEYbKrPrAYxAoGASE7l\nSJ6mqrXGbl5K3lnJBx3devd+OP9YqbvObRQC4BNm0SeVrsgenMTnDKAPVncMBvyw\nghXmQitG+RTtSAZ+PrRMZkzrHFCFxmOjiQJtLDZBHwZT0GBIh+ODVZT77QHTBMDF\nmxMXemPSnoAU5+pAmq6poG/B2y5hY3LfWZ6/0QECgYB1BOSS9rcNsxXRn2kG7aOB\nFJ6YXu+iULeoOTFUD+kYmng7GRhu3TCLljOHpfJItX9Y0phd6VFjeVIwpFIzrcRW\nRmJgufsDB11oAcsRsOwH5gPp2Bxih7Gokp+9xOliFIYgWpEiLGiOXNydaq4XC3mZ\nA0aBeNrrCyqETM+FGNcIqw==\n-----END PRIVATE KEY-----\n",
+  "client_email": "travelbertsheet@hale-acumen-424710-p5.iam.gserviceaccount.com",
+  "client_id": "104859650707433647407",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/travelbertsheet%40hale-acumen-424710-p5.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
 
-# Function to read the CSV file from GitHub
-def read_csv_from_github():
-    url = f'https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}'
-    headers = {'Authorization': f'token {GITHUB_TOKEN}'}
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        content = base64.b64decode(response.json()['content'])
-        return pd.read_csv(io.StringIO(content.decode('utf-8')))  # Updated import statement
-    else:
-        st.error(f"Error reading file: {response.status_code}")
+# Google Sheets setup
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
+credentials = Credentials.from_service_account_info(CREDENTIALS, scopes=SCOPES)
+gc = gspread.authorize(credentials)
+
+# Function to read data from Google Sheets
+def read_data_from_google_sheets():
+    try:
+        sheet = gc.open_by_key(SPREADSHEET_ID)
+        worksheet = sheet.worksheet(WORKSHEET_NAME)
+        data = worksheet.get_all_records()
+        return pd.DataFrame(data)
+    except APIError as e:
+        st.error(f"APIError reading from Google Sheets: {e}")
+        return pd.DataFrame(columns=["Questions", "Suggestions"])
+    except Exception as e:
+        st.error(f"Error reading from Google Sheets: {e}")
         return pd.DataFrame(columns=["Questions", "Suggestions"])
 
-# Function to write the CSV file to GitHub
-def write_csv_to_github(df):
-    url = f'https://api.github.com/repos/{GITHUB_USERNAME}/{GITHUB_REPO}/contents/{GITHUB_FILE_PATH}'
-    headers = {
-        'Authorization': f'token {GITHUB_TOKEN}',
-        'Content-Type': 'application/json'
-    }
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        sha = response.json()['sha']
-        content = base64.b64encode(df.to_csv(index=False).encode('utf-8')).decode('utf-8')
-        data = {
-            'message': 'Updating updated_list.csv',
-            'content': content,
-            'sha': sha
-        }
-        response = requests.put(url, headers=headers, data=json.dumps(data))
-        if response.status_code == 200:
-            st.success('Database Updated...')
-        else:
-            st.error(f"Error updating file: {response.status_code}")
-    else:
-        st.error(f"Error reading file: {response.status_code}")
+# Function to write data to Google Sheets
+def write_data_to_google_sheets(df):
+    try:
+        sheet = gc.open_by_key(SPREADSHEET_ID)
+        worksheet = sheet.worksheet(WORKSHEET_NAME)
+        worksheet.clear()
+        worksheet.update([df.columns.values.tolist()] + df.values.tolist())
+        st.success('Database Updated...')
+    except APIError as e:
+        st.error(f"APIError updating Google Sheets: {e}")
+    except Exception as e:
+        st.error(f"Error updating Google Sheets: {e}")
 
 def TravelScore(text:str):
     senti_analysis_prompt = f"""Analyse the following list of feedback '{text}' and generate Below
@@ -77,9 +90,9 @@ def responseFunc(prompt):
     response = model.generate_content(prompt)
     return response
 
-# Load the existing DataFrame from a CSV file or create a new one
+# Load the existing DataFrame from Google Sheets or create a new one
 try:
-    df = read_csv_from_github()
+    df = read_data_from_google_sheets()
 except FileNotFoundError:
     df = pd.DataFrame(columns=["Questions", "Suggestions"])
 
@@ -112,9 +125,8 @@ with st.form(key='feedback_form'):
                 if df["Questions"][i] == place:
                     df.at[i, "Suggestions"] += '@' + feedback_message
         
-        # Save the updated DataFrame to a CSV file
-        # df.to_csv("updated_list.csv", index=False)
-        write_csv_to_github(df)
+        # Save the updated DataFrame to Google Sheets
+        write_data_to_google_sheets(df)
         st.success('Thank you for your feedback!')
 
 if place != "----NEW Place----": 
